@@ -1,0 +1,144 @@
+﻿@inherits ComponentBase
+@using BlazorApp1.Models
+@using BlazorApp1.Service
+@inject OrderService orderService
+@inject MessageService messageService
+@inject UserStroge userStroge
+<Table TItem="CartItem" IsStriped="true" IsBordered="true" IsMultipleSelect="true"
+ShowToolbar="true" ShowExtendButtons="true" AutoGenerateColumns="true"
+OnQueryAsync="@OnEditQueryAsync" OnResetSearchAsync="@OnResetSearchAsync"
+OnSaveAsync="@OnSaveAsync" OnDeleteAsync="@OnDeleteAsync" ShowAddButton="false"
+OnColumnCreating="@OnColumnCreating">
+</Table>
+<br />
+<span style="float: left;position:relative;top:5px">
+    <h4>
+        总价：@TotalPrice.ToString() 元
+    </h4>
+</span>
+<span style="float: right">
+    <Button OnClick="@BuyAllCartItems">购买全部</Button>
+</span>
+@code {
+    public List<CartItem>? CartItems { get; set; }
+
+    [CascadingParameter(Name = "BodyContext")]
+    private object? context { get; set; }
+
+    private string? userId;
+
+    public double TotalPrice;
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        CartItems = context as List<CartItem>;
+        CountTotalPrice();
+        userId = userStroge.UserId;
+    }
+
+    public Task<QueryData<CartItem>> OnEditQueryAsync(QueryPageOptions options)
+    {
+        var items = CartItems ?? new List<CartItem>();
+        CountTotalPrice();
+        return Task.FromResult(new QueryData<CartItem>()
+            {
+                Items = items,
+                IsSearch = false,
+                IsFiltered = false,
+                IsSorted = false,
+                TotalCount = items.Count
+            });
+    }
+
+    public Task OnResetSearchAsync(CartItem item)
+    {
+        CountTotalPrice();
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> OnSaveAsync(CartItem item, ItemChangedType itemChangedType)
+    {
+        CartItem? cartItem = CartItems?.Find(i => i.ProductId == item.ProductId);
+        if (cartItem != null)
+        {
+            CartItems?.Remove(cartItem);
+            CartItems?.Add(item);
+        }
+        CountTotalPrice();
+        StateHasChanged();
+        return Task.FromResult(true);
+    }
+    public Task<bool> OnDeleteAsync(IEnumerable<CartItem> item)
+    {
+        if (CartItems == null)
+        {
+            return Task.FromResult(false);
+        }
+        item.ToList().ForEach(i => CartItems.Remove(i));
+        CountTotalPrice();
+        StateHasChanged();
+        return Task.FromResult(true);
+    }
+
+    private Task OnColumnCreating(List<ITableColumn> columns)
+    {
+        foreach (var column in columns)
+        {
+            if (column.GetFieldName() != nameof(CartItem.Number))
+            {
+                column.Readonly = true;
+            }
+            if(column.GetFieldName() == nameof(CartItem.ProductId)){
+                column.Visible = false;
+                column.IsVisibleWhenEdit = false;
+            }
+            if (column.GetFieldName() == nameof(CartItem.Name)){
+                column.Text = "商品名";
+            }
+            if (column.GetFieldName() == nameof(CartItem.Price))
+            {
+                column.Text = "商品价格";
+            }
+            if (column.GetFieldName() == nameof(CartItem.Number))
+            {
+                column.Text = "商品数量";
+            }
+        }
+        return Task.CompletedTask;
+    }
+
+    private void CountTotalPrice()
+    {
+        double tmp = CartItems?.Sum(i => i.Price * i.Number) ?? 0;
+        TotalPrice = Math.Round(tmp, 2);
+    }
+
+    private async void BuyAllCartItems()
+    {
+        if (CartItems.Count > 0)
+        {
+            var result = await orderService.CommitCartList(userId, CartItems);
+            if (result)
+            {
+                await messageService.Show(new MessageOption()
+                    {
+                        Content = "下单成功",
+                        Icon = "fa-solid fa-circle-info",
+                        Color = Color.Success
+                    });
+                CartItems.Clear();
+                CountTotalPrice();
+                StateHasChanged();
+            }else{
+                await messageService.Show(new MessageOption()
+                    {
+                        Content = "下单失败",
+                        Icon = "fa-solid fa-circle-info",
+                        Color = Color.Danger
+                    });
+            }
+            
+        }
+    }
+}

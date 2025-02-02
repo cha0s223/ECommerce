@@ -1,0 +1,16 @@
+﻿<BootstrapBlazorRoot>
+<CascadingAuthenticationState>
+<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.Account.NoAuthLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+        <NotFound>
+            <PageTitle>Not Found</PageTitle>
+                <LayoutView Layout="typeof(Layout.Account.NoAuthLayout)">
+                <p>Sorry, there's nothing at this address.</p>
+            </LayoutView>
+        </NotFound>
+</Router>
+</CascadingAuthenticationState>
+</BootstrapBlazorRoot>

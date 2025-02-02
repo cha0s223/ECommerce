@@ -1,0 +1,173 @@
+﻿@page "/seller"
+@layout BlazorApp1.Components.Layout.BBLayout
+@using System.Security.Claims;
+@using Microsoft.AspNetCore.Components.Authorization
+@using BlazorApp1.Components.Layout
+@using BlazorApp1.Models.Dto
+@using BlazorApp1.Service
+@using BlazorApp1.Models.Vo
+@using BlazorApp1.Models.Entity
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserService userService
+@inject NavigationManager NavigationManager
+@inject MessageService messageService
+@inject SellerStroge sellerStroge
+@inject StoreService storeService
+
+<Scroll Height="100%">
+
+
+    <p>Welcome to the Seller page.</p>
+    <div class="login-item login-item-floating">
+        <div class="text-center">
+            我的信息
+        </div>
+        <ValidateForm Model="@userDto" class="text-center" OnValidSubmit="register">
+            <FloatingLabel @bind-Value="userDto.Id" DisplayText="账户" TValue="string" IsGroupBox="true" PlaceHolder="userId" IsDisabled="true" />
+            <br />
+            <FloatingLabel @bind-Value="userDto.Password" DisplayText="密码" TValue="string" type="password" IsGroupBox="true" PlaceHolder="password" IsDisabled="true" />
+            <br />
+            <FloatingLabel @bind-Value="userDto.Name" DisplayText="姓名" TValue="string" IsGroupBox="true" PlaceHolder="name" />
+            <br />
+            <FloatingLabel @bind-Value="userDto.Mobile" DisplayText="电话号码" TValue="string" IsGroupBox="true" PlaceHolder="mobile" />
+            <br />
+            <FloatingLabel @bind-Value="userDto.Address" DisplayText="收货地址" TValue="string" IsGroupBox="true" PlaceHolder="address" />
+            <br />
+            <Button Text="修改信息" Color="Color.Primary" style="width: 50%" ButtonType="ButtonType.Submit"></Button>
+        </ValidateForm>
+    </div>
+    <hr />
+    <h3>我的店铺</h3>
+    @if (isLoading)
+    {
+        <p>Loading...</p> <!-- 显示加载指示器 -->
+    }
+    else
+    {
+        <Table TItem="StoreVo" IsPagination="true" PageItemsSource="@PageItemsSource" IsStriped="true" IsBordered="true" IsMultipleSelect="true"
+               ShowToolbar="true" ShowExtendButtons="true" AutoGenerateColumns="true"
+               OnQueryAsync="@OnEditQueryAsync"
+               OnSaveAsync="@OnSaveAsync" ShowAddButton="false" ShowDeleteButton="false"
+               OnColumnCreating="@OnColumnCreating" style="height:60%">
+        </Table>
+    }
+</Scroll>
+@code {
+    public UserDto userDto { get; set; }
+    private string? userId { get; set; }
+    private List<StoreVo>? stores { get; set; }
+    private static IEnumerable<int> PageItemsSource => new int[] { 5, 10, 20 };
+    private bool isLoading = true; // 表示数据是否正在加载
+    protected override async Task OnInitializedAsync()
+    {
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            userId = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+        }
+
+        await userService.GetMyInfo(userId).ContinueWith(task =>
+        {
+
+            userDto = new UserDto()
+                {
+                    Id = task.Result.Id,
+                    Name = task.Result.Name,
+                    Mobile = task.Result.Mobile,
+                    Address = task.Result.Address,
+                    Password = "********"
+                };
+        });
+        await storeService.GetMyStore(userId).ContinueWith(task =>
+        {
+            stores = task.Result;
+        });
+        isLoading = false; // 数据加载完成
+
+        sellerStroge.userId = userId;
+        sellerStroge.stores = stores;
+        }
+
+    // protected override async Task OnAfterRenderAsync(bool firstRender)
+    // {
+
+    // }
+
+    public async Task register(EditContext textcontext)
+    {
+        await userService.UpdateMyInfo(new UserDto()
+            {
+                Id = userDto.Id,
+                Name = userDto.Name,
+                Mobile = userDto.Mobile,
+                Address = userDto.Address,
+                Password = userDto.Password
+            }, userId).ContinueWith(async res =>
+    {
+    if (res.Result)
+    {
+        await messageService.Show(new MessageOption()
+            {
+                Content = "修改成功",
+                Icon = "fa-solid fa-circle-info",
+                Color = Color.Success
+            });
+        NavigationManager.NavigateTo("/seller");
+    }
+    });
+    }
+
+    public Task<QueryData<StoreVo>> OnEditQueryAsync(QueryPageOptions options)
+    {
+        var items = stores ?? new List<StoreVo>();
+        return Task.FromResult(new QueryData<StoreVo>()
+            {
+                Items = items,
+                IsSearch = false,
+                IsFiltered = false,
+                IsSorted = false,
+                TotalCount = items.Count
+            });
+    }
+
+    private Task OnColumnCreating(List<ITableColumn> columns)
+    {
+        foreach (var column in columns)
+        {
+            if (column.GetFieldName() != nameof(StoreVo.Name))
+            {
+                column.Readonly = true;
+            }
+        }
+        return Task.CompletedTask;
+    }
+
+    public async Task<bool> OnSaveAsync(StoreVo item, ItemChangedType itemChangedType)
+    {
+        StoreVo? storeItem = stores?.Find(i => i.Id == item.Id);
+        var result = await storeService.UpdateMyStore(new StoreDto()
+            {
+                Id = item.Id,
+                Name = item.Name,
+                MasterId = item.MasterId,
+                MasterName = item.MasterName,
+                Password = item.Password
+            });
+        if (result)
+        {
+            stores?.Remove(storeItem);
+            stores?.Add(item);
+        }
+        StateHasChanged();
+        return true;
+    }
+
+    // private async Task OnEditAsync(StoreVo item)
+    // {
+
+    //     StateHasChanged();
+
+    // }
+}

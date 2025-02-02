@@ -1,0 +1,39 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    @* BootstrapBlazor 中已集成 Bootstrap 最新版，项目模板自带的则不再需要。
+    <link rel="stylesheet" href="bootstrap/bootstrap.min.css" /> *@
+
+    @* 引用 BootstrapBlazor 样式（已集成 Bootstrap 最新版）。 *@
+    <link rel="stylesheet" href="_content/BootstrapBlazor/css/bootstrap.blazor.bundle.min.css" />
+    @* FontAwesoem 字体样式 注意需要使用 NuGet 引用 BootstrapBlazor.FontAwesome 包。 *@
+    <link rel="stylesheet" href="_content/BootstrapBlazor.FontAwesome/css/font-awesome.min.css" />
+    @* 如果不使用 Motronic 样式，则下句不需要。 *@
+    <link rel="stylesheet" href="_content/BootstrapBlazor/css/motronic.min.css" />
+
+    @* 自动生成的当前项目的样式表文件，可以保存自定义样式。 *@
+    <link rel="stylesheet" href="app.css" />
+
+    <link rel="stylesheet" href="BlazorWebAppWithBB.styles.css" />
+
+    <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["BlazorApp1.styles.css"]" />
+    <ImportMap />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet @rendermode="InteractiveServer" />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    @* BootstrapBlazor 引用 *@
+    <script src="_content/BootstrapBlazor/js/bootstrap.blazor.bundle.min.js"></script>
+
+    <script src="_framework/blazor.web.js"></script>
+</body>
+
+</html>

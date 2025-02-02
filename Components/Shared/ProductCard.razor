@@ -1,0 +1,103 @@
+﻿@using BlazorApp1.Models.Vo
+@inherits ComponentBase
+
+
+@if(!goodsLoading){
+<div  class="col-12 col-sm-6 col-lg-4 col-xl-2" style="width:350px">
+    <Card IsCenter="true" HeaderText="@Product.Name" class="mt-3" style="height:300px;">
+        <HeaderTemplate>
+            <div class="flex-fill">
+            </div>
+            <span>库存：@Product.Reserve</span>
+        </HeaderTemplate>
+        <BodyTemplate>
+@*                 <div style="margin:0px;max-height:150px; overflow: hidden;">
+                
+                </div> *@
+                <ImageViewer Url="@Product.ImgPath" PreviewList="PreviewList" FitMode="ObjectFitMode.Fill" style="height:165px;width:300px" Alt="商品图片" />
+            
+                @* <img src="@Product.ImgPath" class="card-img-top" alt="@Product.Name" /> *@
+        </BodyTemplate>
+        <FooterTemplate>
+            <span style="float: left;position:relative;top:5px">价格：@Product.Price</span>
+            @*         <div class="flex-fill">
+        </div> *@
+            @if (CartNum>=1)
+            {
+                <span style="float: right;width: 150px">
+                    <div class="demo-input-number">
+                        <BootstrapInputNumber ShowButton="true" @bind-Value="CartNum" Max="@MaxNum" Min="0" />
+                    </div>
+                </span>
+            }
+            else
+            {
+                <span style="float: right">
+                    <Button OnClick="@AddToCart">加入购物车</Button>
+                </span>
+            }
+        </FooterTemplate>
+    </Card>
+</div>
+}
+else
+{
+<div class="spinner-border" role="status">
+    <span class="visually-hidden">Loading...</span>
+</div>
+}
+
+@code {
+    [Parameter]
+    public GoodsVo Product { get; set; }
+
+    private int _cartNum;
+    private List<string> PreviewList { get; set; } = new();
+    private bool goodsLoading { get; set; } = true;
+
+    [Parameter]
+    public int CartNum
+    {
+        get => _cartNum;
+        set
+        {
+            if (_cartNum != value)
+            {
+                _cartNum = value;
+                CartNumChanged.InvokeAsync(value);
+            }
+        }
+    }
+
+    [Parameter]
+    public EventCallback<int> CartNumChanged { get; set; }
+
+
+    public string MaxNum { get; set; }
+
+    [Parameter]
+    public EventCallback<GoodsVo> OnAddToCart { get; set; }
+
+
+
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        int? nullableInt = Product?.Reserve;
+        MaxNum = nullableInt?.ToString() ?? "0";
+        PreviewList.Add(Product.ImgPath);
+        goodsLoading = false;
+    }
+
+    private void AddToCart()
+    {
+        if (OnAddToCart.HasDelegate)
+        {
+            OnAddToCart.InvokeAsync(Product);
+        }
+    }
+
+
+
+}

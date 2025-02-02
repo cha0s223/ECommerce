@@ -1,0 +1,242 @@
+﻿@page "/seller/goods"
+@layout BlazorApp1.Components.Layout.BBLayout
+@using BlazorApp1.Service
+@using BlazorApp1.Models.Vo
+@using BlazorApp1.Models.Dto
+@inject SellerStroge sellerStroge
+@inject StoreService storeService
+@inject ILogger<GoodsList> logger
+@inject IWebHostEnvironment env
+<Scroll Height="100%">
+    <h3>我的商品</h3>
+    <span>店铺：</span>
+    @if (!listLoadding)
+    {
+        <Select Items="@storeList" TValue="SelectedItem" @bind-Value="selectedStore" @onchange="OnStoreChanged" />
+        <br />
+        <Table TItem="GoodsVo" IsPagination="true" PageItemsSource="@PageItemsSource" IsStriped="true" IsBordered="true" IsMultipleSelect="true"
+        ShowToolbar="true" ShowExtendButtons="true" AutoGenerateColumns="true"
+        OnQueryAsync="@OnEditQueryAsync" OnDeleteAsync="@OnDeleteAsync" OnAddAsync="@OnAddAsync"
+        OnSaveAsync="@OnSaveAsync" style="height:80%" OnColumnCreating="@OnColumnCreating" >
+            <TableColumns>
+                <TableColumn @bind-Field="@context.ImgPath">
+                    <Template Context="value">
+                        @if (PreviewList.ContainsKey(value.Row.Id))
+                        {
+                            <ImageViewer Url="@value.Row.ImgPath" FitMode="ObjectFitMode.Fill" PreviewList="PreviewList[value.Row.Id]" />
+                        }
+                    </Template>
+                </TableColumn>
+            </TableColumns>
+            <EditTemplate>
+                <div class="row g-3">
+                    <div class="col-12 col-sm-6">
+                        <BootstrapInput @bind-Value="@context.Name" DisplayText="商品名称" placeholder="不可为空，50字以内" maxlength="50">
+                        </BootstrapInput>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <BootstrapInput @bind-Value="@context.Price" DisplayText="商品价格" placeholder="不可为空" maxlength="50">
+                        </BootstrapInput>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <BootstrapInput @bind-Value="@context.Reserve" DisplayText="商品库存" placeholder="不可为空" maxlength="50">
+                        </BootstrapInput>
+                    </div>
+                    <div class="col-12 col-sm-6">
+
+                        <InputFile OnChange="@(e => OnFileChangeAsync(e, context))" MaxAllowedSize="1048576" />
+                        @* OnChange="async (e) => await OnFileChangeAsync(e, value)" *@
+                        @if (PreviewList.ContainsKey(context.Id))
+                            {
+                        <ImageViewer @bind-Value="@context.ImgPath" Url="@context.ImgPath" FitMode="ObjectFitMode.Fill" PreviewList="PreviewList[context.Id]" />
+                            }
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <BootstrapInput @bind-Value="@context.State" DisplayText="商品状态" placeholder="不可为空，50字以内" maxlength="50" >
+                        </BootstrapInput>
+                    </div>
+                </div>
+
+            </EditTemplate>
+        </Table>
+    }
+    else
+    {
+        <span>加载完成</span>
+    }
+</Scroll>
+@code {
+    private bool listLoadding = true;
+    private SelectedItem? selectedStore { set; get; }
+    private List<GoodsVo>? goodsList { set; get; }
+    private List<SelectedItem> storeList = new List<SelectedItem>();
+    private static IEnumerable<int> PageItemsSource => new int[] { 5, 10, 20 };
+    private Dictionary<int, List<string>?> PreviewList { get; set; } = new Dictionary<int, List<string>?>();
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (sellerStroge?.stores?.Count > 0)
+        {
+            foreach (StoreVo store in sellerStroge.stores)
+            {
+                storeList.Add(new SelectedItem(store.Id, store?.Name));
+            }
+        }
+
+        listLoadding = false;
+    }
+
+
+    public async Task<bool> OnSaveAsync(GoodsVo item, ItemChangedType itemChangedType)
+    {
+        GoodsVo? goodsItem = goodsList?.Find(i => i.Id == item.Id);
+        if(goodsItem is not null)
+        {
+            var result = await storeService.UpdateGoods(new GoodsDto(){
+                Id = item.Id,
+                Name = item.Name,
+                Price = item.Price,
+                StoreId = item.StoreId,
+                ImgPath = item.ImgPath,
+                Reserve = item.Reserve,
+                State = item.State
+                });
+            if (result)
+            {
+                goodsList?.Remove(goodsItem);
+                goodsList?.Add(item);
+            }
+        }else{
+            var result = await storeService.AddGoods(new GoodsDto()
+                {
+                    Name = item.Name,
+                    Price = item.Price,
+                    StoreId = item.StoreId,
+                    ImgPath = item.ImgPath,
+                    Reserve = item.Reserve,
+                    State = item.State
+                });
+            if (result)
+            {
+                var res = await storeService.GetMyGoods(selectedStore?.Value);
+                var newItem = res.LastOrDefault();
+                goodsList?.Add(newItem);
+            }
+        }
+        StateHasChanged();
+        return true;
+    }
+
+    public Task<QueryData<GoodsVo>> OnEditQueryAsync(QueryPageOptions options)
+    {
+        var items = storeService.GetMyGoods(selectedStore?.Value).Result ?? new List<GoodsVo>();
+        goodsList = items;
+        PreviewList.Clear();
+        if (items.Count > 0)
+        {
+            items.ForEach(i => {
+            PreviewList[i.Id] = new List<string>() { i.ImgPath };
+        });
+        }
+        return Task.FromResult(new QueryData<GoodsVo>()
+            {
+                Items = items,
+                IsSearch = false,
+                IsFiltered = false,
+                IsSorted = false,
+                TotalCount = items.Count
+            });
+    }
+
+    public Task<bool> OnDeleteAsync(IEnumerable<GoodsVo> item)
+    {
+        if (goodsList == null)
+        {
+            return Task.FromResult(false);
+        }
+        List<int> nameList= item.Select(i => i.Id).ToList();
+        nameList.ForEach(i => storeService.DeleteGoods(i));
+        nameList.ForEach(i => goodsList.Remove(goodsList.Find(j => j.Id == i)));
+        StateHasChanged();
+        return Task.FromResult(true);
+    }
+
+    public Task<GoodsVo> OnAddAsync()
+    {
+        return Task.FromResult(new GoodsVo() {StoreId= selectedStore.Value });
+    }
+
+    private Task OnColumnCreating(List<ITableColumn> columns)
+    {
+        foreach (var column in columns)
+        {
+            if (column.GetFieldName() == nameof(GoodsVo.StoreId) || column.GetFieldName() == nameof(GoodsVo.Id))
+            {
+                column.Readonly = true;
+                column.Visible = false;
+            }
+            else
+            {
+                column.ShowLabelTooltip = true;
+                if (column.GetFieldName() == nameof(GoodsVo.Name))
+                {
+                    column.Text = "商品名称";
+                }
+                else if (column.GetFieldName() == nameof(GoodsVo.Price))
+                {
+                    column.Text = "价格";
+                }
+                else if (column.GetFieldName() == nameof(GoodsVo.Reserve))
+                {
+                    column.Text = "库存";
+                }
+                else if (column.GetFieldName() == nameof(GoodsVo.State))
+                {
+                    column.Text = "状态";
+                }
+                else if (column.GetFieldName() == nameof(GoodsVo.ImgPath))
+                {
+                    column.Text = "图片";
+                    column.Width = 100;
+                }
+                else{
+                    column.Visible = false;
+                }
+
+            }
+        }
+        return Task.CompletedTask;
+    }
+
+    private async Task OnStoreChanged(ChangeEventArgs e)
+    {
+        selectedStore = e.Value as SelectedItem;
+        goodsList = await storeService.GetMyGoods(selectedStore?.Value);
+        StateHasChanged();
+    }
+
+    private async Task OnFileChangeAsync(InputFileChangeEventArgs e, GoodsVo context)
+
+    {
+        var file = e.File;
+        if (file.Size > 10485760) // 10 MB
+        {
+            // Handle file size exceeding the limit
+            logger.LogError("File size exceeds the maximum allowed size.");
+            return;
+        }
+        var uniqueFileName = $"{Guid.NewGuid()}_{file.Name}";
+        var filePath = Path.Combine(env.WebRootPath, "images", uniqueFileName);
+
+        // Ensure the directory exists
+        Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+
+        using (var fileStream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 10).CopyToAsync(fileStream);
+        }
+
+        context.ImgPath = $"/images/{uniqueFileName}";
+        StateHasChanged();
+    }
+}

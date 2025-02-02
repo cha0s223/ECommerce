@@ -1,0 +1,117 @@
+﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using BlazorApp1.Models.Vo
+@using BlazorApp1.Service
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager nvm
+@inject HttpClient httpClient
+@inject UserStroge userStroge
+<AuthorizeView>
+    <Authorized>
+        <Layout SideWidth="0" IsPage="true" IsFullSide="true" ShowCollapseBar="true"
+        IsFixedHeader="true" IsFixedFooter="true"
+        ShowFooter="true" ShowGotoTop="true"
+        Menus="@Menus"
+        UseTabSet="true" TabDefaultUrl="@defaultUrl">
+            <Header>
+                <span class="ms-3 flex-fill">Blazor Web App 模板引用 BootstrapBlazor</span>
+                <span class="mx-3 d-none d-sm-block">
+                    <Logout ImageUrl="@imgPath" DisplayName="@userRole" UserName="@userId" class="bg-primary">
+                        <LinkTemplate>
+                            <a href="@defaultUrl">
+                                <i class="fa-solid fa-user"></i><span>个人中心</span>
+                            </a>
+                            <a href="@defaultUrl">
+                                <i class="fa-solid fa-gear"></i><span>设置</span>
+                            </a>
+                            <LogoutLink Url="/logout" />
+                        </LinkTemplate>
+                    </Logout>
+                </span>
+            </Header>
+            <Side>
+                <div class="layout-banner">
+                    @* <img alt="logo" class="layout-logo" src="favicon.png" /> *@
+                    <div class="layout-logo">
+                        <i class="fas fa-store"></i>
+                    </div>
+                    @* <BootstrapBlazorIcon Name="fa-solid fa-home" ></BootstrapBlazorIcon> *@
+                    <div class="layout-title">
+                        <span style="">牛魔电商平台</span>
+                    </div>
+                </div>
+            </Side>
+            <Main>
+                @Body
+            </Main>
+            <Footer>
+                <div class="text-center flex-fill">
+                    <a class="layout-footer-gray">版权说明、使用说明</a>
+                </div>
+            </Footer>
+        </Layout>
+    </Authorized>
+    <NotAuthorized>
+        <BlazorApp1.Components.Layout.Account.NoAuthLayout />
+    </NotAuthorized>
+</AuthorizeView>
+
+@* fas fa-wheelchair-move *@
+
+@code {
+    private IEnumerable<MenuItem>? Menus { get; set; }
+    public string? userId { get; set; }
+    public string? userRole { get; set; }
+    private string? imgPath { get; set; } 
+    private string? currentUrl { get; set; }
+    private string? defaultUrl { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        imgPath = "images/user_img.png"; // 使用相对路径
+        currentUrl = nvm.Uri.Replace(nvm.BaseUri, ""); // 获取当前页面的 URL
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            userId = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+            userRole = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value== "buyer" ? "买家" : "卖家";
+            userStroge.UserId = userId;
+            userStroge.UserRole = userRole;
+            if(userRole!=""){
+                if (userRole == "买家")
+                {
+                    defaultUrl = "/buyer";
+                    Menus = new List<MenuItem>
+                {
+                    new () { Text = "Buyer", Icon = "fa-fw fa-solid fa-laptop", Url = "/buyer" },
+                    new() { Text = "Shop", Icon = "fa-fw fa-solid fa-laptop", Url = "/buyer/buy" },
+                    new() { Text = "MyOrder", Icon = "fa-fw fa-solid fa-laptop", Url = "/buyer/myorder" }
+                };
+                }
+                else if (userRole == "卖家")
+                {
+                    defaultUrl = "/seller";
+                    Menus = new List<MenuItem>
+                {
+                    new () { Text = "Seller", Icon = "fa-fw fa-solid fa-laptop", Url = "/seller" },
+                    new () { Text = "GoodsList", Icon = "fas fa-wheelchair-move",Url = "/seller/goods" },
+                    new () { Text = "OrderList", Icon = "fa-fw fa-solid fa-laptop", Url = "/seller/order-list" }
+                };
+                }else{
+
+                }
+            }
+        } 
+    }
+    // protected override async Task OnAfterRenderAsync(bool firstRender)
+    // {
+    //     if (firstRender)
+    //     {
+            
+    //         StateHasChanged(); 通知界面进行刷新
+    //     }
+    // }
+    
+}

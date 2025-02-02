@@ -1,0 +1,29 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager nvm
+<Layout SideWidth="0" IsPage="true"
+IsFixedHeader="true" IsFixedFooter="true"
+ShowFooter="true">
+    <Header>
+        <span class="ms-3 flex-fill">Blazor Web App 模板引用 BootstrapBlazor</span>
+    </Header>
+    <Main>
+        @Body
+    </Main>
+    <Footer>
+        <div class="text-center flex-fill">
+            <a class="layout-footer-gray">版权说明、使用说明</a>
+        </div>
+    </Footer>
+</Layout>
+@code {
+    private bool _firstRender = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_firstRender)
+        {
+            _firstRender = false;
+            nvm.NavigateTo("/login");
+        }
+    }
+}

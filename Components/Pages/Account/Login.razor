@@ -1,0 +1,95 @@
+@page "/login"
+@layout BlazorApp1.Components.Layout.Account.LoginLayout
+@using BlazorApp1.Auth
+@using BlazorApp1.Models.Dto
+@using BlazorApp1.Models.Vo
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using System.Diagnostics.CodeAnalysis
+@inject NavigationManager NavigationManager
+@inject IDbContextFactory<BlazorApp1.Data.BlazorApp1Context> DbFactory
+@using BootstrapBlazor.Components
+@inject MessageService MessageService
+@inject ILogger<Login> Logger
+@inject HttpClient Http
+@inject AuthenticationStateProvider AuthProvider
+@inject ILogger<Login> logger
+
+<div class="login-item login-item-floating">
+    <div class="text-center">
+        <h4 class="text-dark">用户登录!</h4>
+    </div>
+    <ValidateForm Model="@loginDto" class="text-center" OnValidSubmit="login">
+        <FloatingLabel @bind-Value="loginDto.id" DisplayText="账户" TValue="string" IsGroupBox="true" PlaceHolder="userId" />
+        <br/>
+        <FloatingLabel @bind-Value="loginDto.password" DisplayText="密码" TValue="string" type="password" IsGroupBox="true" PlaceHolder="password" />
+        <br />
+        <Select Items="selectedItems" ShowLabel="false" @bind-Value="loginDto.role" TValue="SelectedItem" DisplayField="Text" ValueField="Value" PlaceHolder="请选择角色" />
+        <br />
+        <Checkbox TValue="bool" ShowLabel="false" ShowAfterLabel="true" DisplayText="记住登录状态" />
+        <br />
+        <Button Text="登录" Color="Color.Primary" style="width: 50%" ButtonType="ButtonType.Submit"></Button>
+        <hr />
+        <Button Text="忘记密码" Color="Color.Danger"></Button>
+        <Button Text="用户注册" Color="Color.Info" @onclick="getRegister"></Button>
+    </ValidateForm>
+</div>
+
+@code {
+
+    [CascadingParameter]
+    [NotNull]
+    private LoginDto loginDto { get; set; } = new LoginDto();
+
+
+
+    private List<SelectedItem> selectedItems = new()
+    {
+        new SelectedItem { Text = "买家", Value = "buyer" },
+        new SelectedItem { Text = "卖家", Value = "seller" }
+    };
+    private async Task login(EditContext textcontext)
+    {
+        try{
+            var httpResponse = await Http.PostAsJsonAsync<LoginDto>($"api/Auth/Login", loginDto);
+            var user = await httpResponse.Content.ReadFromJsonAsync<AuthVo>();
+            logger.LogInformation("user: {0}", user);
+            if (user?.Token is null)
+            {
+                await MessageService.Show(new MessageOption()
+                {
+                    Content = "账号或密码错误",
+                    Icon = "fa-solid fa-circle-info",
+                    Color = Color.Danger
+                });
+                return;
+            }
+            await MessageService.Show(new MessageOption()
+            {
+                Content = "登录成功",
+                Icon = "fa-solid fa-circle-info",
+                Color = Color.Success
+            });
+            ((AuthProvider)AuthProvider).MarkUserAsAuthenticated(user,loginDto.role);
+            if (loginDto.role.Value == "buyer")
+            {
+                NavigationManager.NavigateTo("/buyer");
+            }
+            else
+            {
+                NavigationManager.NavigateTo("/seller");
+            }
+            InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            // 添加日志记录
+            System.Console.WriteLine($"Error fetching user: {ex.Message}");
+        }
+    }
+
+    public void getRegister()
+    {
+        NavigationManager.NavigateTo("/Register");
+    }
+}

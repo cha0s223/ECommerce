@@ -1,0 +1,88 @@
+﻿@page "/buyer"
+@using System.Security.Claims;
+@using Microsoft.AspNetCore.Components.Authorization
+@using BlazorApp1.Components.Layout
+@using BlazorApp1.Models.Dto
+@using BlazorApp1.Service
+@using BlazorApp1.Models.Vo
+@layout BlazorApp1.Components.Layout.BBLayout
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserService userService
+@inject NavigationManager NavigationManager
+@inject MessageService messageService
+@inject UserStroge userStroge
+<h3>Index</h3>
+
+<p>Welcome to the Buyer page.</p>
+
+<ValidateForm Model="@userDto" class="text-center" OnValidSubmit="register">
+    <FloatingLabel @bind-Value="userDto.Id" DisplayText="账户" TValue="string" IsGroupBox="true" PlaceHolder="userId" IsDisabled="true"/>
+    <br />
+    <FloatingLabel @bind-Value="userDto.Password" DisplayText="密码" TValue="string" type="password" IsGroupBox="true" PlaceHolder="password" IsDisabled="true" />
+    <br />
+    <FloatingLabel @bind-Value="userDto.Name" DisplayText="姓名" TValue="string" IsGroupBox="true" PlaceHolder="name" />
+    <br />
+    <FloatingLabel @bind-Value="userDto.Mobile" DisplayText="电话号码" TValue="string" IsGroupBox="true" PlaceHolder="mobile"/>
+    <br />
+    <FloatingLabel @bind-Value="userDto.Address" DisplayText="收货地址" TValue="string" IsGroupBox="true" PlaceHolder="address" />
+    <br />
+    <Button Text="修改信息" Color="Color.Primary" style="width: 50%" ButtonType="ButtonType.Submit"></Button>
+</ValidateForm>
+@code {
+    public UserDto userDto { get; set; }
+    private string? userId { get; set; }
+    private string? userRole { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            userId = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value;
+            userRole = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value == "buyer" ? "买家" : "卖家";
+            // userStroge.UserId = userId;
+            // userStroge.UserRole = userRole;
+        }
+        await userService.GetMyInfo(userId).ContinueWith(task =>
+        {
+            
+            userDto = new UserDto()
+                {
+                    Id = task.Result.Id,
+                    Name = task.Result.Name,
+                    Mobile = task.Result.Mobile,
+                    Address = task.Result.Address,
+                    Password = "********"
+                };
+        });
+    }
+
+    // protected override async Task OnAfterRenderAsync(bool firstRender)
+    // {
+        
+    // }
+
+    public async Task register(EditContext textcontext)
+    {
+        await userService.UpdateMyInfo(new UserDto(){
+            Id = userDto.Id,
+            Name = userDto.Name,
+            Mobile = userDto.Mobile,
+            Address = userDto.Address,
+            Password = userDto.Password
+        },userId).ContinueWith(async res=>{
+            if (res.Result)
+            {
+                await messageService.Show(new MessageOption()
+                    {
+                        Content = "修改成功",
+                        Icon = "fa-solid fa-circle-info",
+                        Color = Color.Success
+                    });
+                NavigationManager.NavigateTo("/buyer");
+            }
+        }); 
+}
+}

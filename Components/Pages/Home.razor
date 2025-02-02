@@ -1,0 +1,36 @@
+﻿@page "/"
+@layout BlazorApp1.Components.Layout.BBLayout
+@using BlazorApp1.Models;
+@using BlazorApp1.Models.Entity
+@inject BlazorApp1.Data.BlazorApp1Context _context
+
+<PageTitle>Home</PageTitle>
+
+<h1>Hello, world!</h1>
+
+@foreach (var order in orders)
+{
+    <p>@order.Id</p>
+}
+<hr />
+@foreach(var suborder in subOrders){
+    <p>@suborder.Id</p>
+}
+<hr />
+@foreach (var store in stores)
+{
+    <p>@store.Id</p>
+}
+
+@code{
+    List<Order>? orders;
+    List<SubOrder>? subOrders;
+    List<Store>? stores;
+
+    protected override async Task OnInitializedAsync()
+    {
+        orders = _context.Order.ToList();
+        subOrders = _context.SubOrders.ToList();
+        stores = _context.Store.ToList();
+    }
+}

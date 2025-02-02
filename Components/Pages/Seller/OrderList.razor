@@ -1,0 +1,124 @@
+﻿@page "/seller/order-list"
+@layout BlazorApp1.Components.Layout.BBLayout
+@using BlazorApp1.Service
+@using BlazorApp1.Models.Entity
+@using BlazorApp1.Models.Vo
+@inject OrderService orderservice
+@inject GoodsService goodsService
+@inject ILogger<OrderList> logger
+@inject SellerStroge sellerStroge
+<h3>OrderList</h3>
+
+
+@if (storeList.Count > 0 && !loading)
+{
+    <Select Items="@storeList" TValue="SelectedItem" @bind-Value="selectedStore" @onchange="OnStoreChanged" />
+    <Button OnClick="()=>{
+            orderList.Clear();
+            GetOrderList(selectedStore?.Value);
+                }">查询</Button>
+    <hr />
+    @foreach (var goodsOrder in orderList)
+    {
+        <Card IsCollapsible="true" HeaderText=" " IsShadow="true">
+            <HeaderTemplate>
+                <span>订单号 - @goodsOrder.OrderId</span>
+                <div class="flex-fill">
+                </div>
+                <span>下单时间 - @goodsOrder.OrderTime</span>
+            </HeaderTemplate>
+            <BodyTemplate>
+                <span>用户ID - @goodsOrder.UserId</span>
+                <Table TItem="SubOrder"  Items="goodsOrder.SubOrders" IsStriped="true">
+                    <TableColumns>
+                        <TableColumn @bind-Field="context.Id" Text="子订单号" Visible="false" />
+                        <TableColumn @bind-Field="context.GoodsId" Text="货物名称">
+                            <Template Context="value">
+                                @orderName[goodsOrder.OrderId+value.Row.GoodsId.ToString() ?? ""]
+                            </Template>
+                        </TableColumn>
+
+                        <TableColumn @bind-Field="context.GoodsPrice" Text="货物总价" Formatter="@IntFormatter" />
+                    </TableColumns>
+                </Table>
+                <span style="float:right">订单总计:@goodsOrder.TotalPrice</span> <!-- 显示订单总价 -->
+            </BodyTemplate>
+        </Card>
+    }
+}
+else
+{
+    <p>暂无订单</p>
+}
+
+@code {
+    private string? userId;
+    private SelectedItem? selectedStore { set; get; }
+    private List<SelectedItem> storeList = new List<SelectedItem>();
+    private List<GoodsOrderList> orderList = new();
+    private Dictionary<string, string?> orderName = new();
+    private bool loading = true;
+
+    protected async override Task OnInitializedAsync()
+    {
+        if (sellerStroge?.stores?.Count > 0)
+        {
+            foreach (StoreVo store in sellerStroge.stores)
+            {
+                storeList.Add(new SelectedItem(store.Id, store?.Name));
+            }
+        }
+        await base.OnInitializedAsync();
+       
+        // GetOrderList(selectedStore?.Value);
+        
+        loading = false;
+    }
+
+    private async Task GetOrderList(string storeId){
+        List<SubOrder> subOrders = await orderservice.GetOrderList(selectedStore?.Value);
+        List<string> ordersId = new List<string>();
+        subOrders.ForEach(async item =>
+        {
+            if (!ordersId.Contains(item.OrderId))
+            {
+                ordersId.Add(item.OrderId);
+            }
+        });
+        foreach (var orderId in ordersId)
+        {
+            var order = await orderservice.GetOrderById(orderId);
+            GoodsOrderList goodsOrderList = new GoodsOrderList();
+            goodsOrderList.OrderId = orderId;
+            goodsOrderList.SubOrders = subOrders.FindAll(i => i.OrderId == orderId);
+            goodsOrderList.UserId = order.UserId ?? "";
+            goodsOrderList.OrderTime = order.Time;
+            goodsOrderList.TotalPrice = goodsOrderList.SubOrders.Sum(i => i.GoodsPrice);
+            goodsOrderList.SubOrders.ForEach(async item =>
+            {
+                int i = item.GoodsId ?? 1;
+                orderName[order.Id + i] = goodsService.GetGoodsById(i).Name;
+            });
+            orderList.Add(goodsOrderList);
+        }
+    }
+
+    private async Task OnStoreChanged(ChangeEventArgs e)
+    {
+        selectedStore = e.Value as SelectedItem;
+        
+        StateHasChanged();
+    }
+    private Task<string> IntFormatter(object d)
+    {
+        var ret = "";
+        if (d is TableColumnContext<SubOrder, object?> data && data.Value != null)
+        {
+            if (data.Value is double val)
+            {
+                ret = val.ToString("0.00");
+            }
+        }
+        return Task.FromResult(ret);
+    }
+}
